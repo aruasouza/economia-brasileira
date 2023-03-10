@@ -18,6 +18,9 @@ def fetch_main_data():
         if key not in st.session_state:
             df = sgs.get({key:data[key]},start = '1994-08-01').dropna()
             st.session_state[key] = df
+    if 'Inflação' in st.session_state:
+        st.session_state['Inflação']['Inflação'] = ((((1 + (st.session_state['Inflação']['Inflação'] / 100)) ** 12) - 1) * 100).apply(lambda x: round(x,2))
+
     if 'USD' not in st.session_state:
         cy = currency.get('USD', start = '1994-08-01',end = str(date.today())).dropna()
         st.session_state['USD'] = cy
@@ -27,10 +30,18 @@ def enrich_data():
         df = st.session_state['Inflação'].copy()
         df['Inflação Acumulada'] = [valor for valor in absolute(df['Inflação'].values)]
         st.session_state['Inflação Acumulada'] = df[['Inflação Acumulada']].copy()
-    
+
+def main_window():
+    data = {'Inflação':'inverse','PIB':'normal','SELIC':'inverse','USD':'inverse','Emprego Formal':'normal'}
+    cols = st.columns(len(data))
+    for name,col in zip(data.keys(),cols):
+        df = st.session_state[name]
+        last_value = df[name].iloc[-1]
+        before = df[name].iloc[-2]
+        dif_percent = round(100 * (last_value - before) / before,2)
+        col.metric(name,last_value,str(dif_percent) + '%',data[name])
 
 fetch_main_data()
-enrich_data()
 
 st.set_page_config(page_title = 'Economia Brasileira',layout = 'wide',page_icon = '&#128200')
 style = '''
@@ -44,7 +55,5 @@ header {visibility:hidden;}
 '''
 st.markdown(style,unsafe_allow_html=True)
 
-indices = [key for key in st.session_state]
-tabs = st.tabs(indices)
-for indice,tab in zip(indices,tabs):
-    tab.line_chart(st.session_state[indice])
+main_window()
+st.title('Economia Brasileira')
